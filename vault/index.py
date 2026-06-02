@@ -25,8 +25,12 @@ def build_contact_index() -> dict[str, str]:
         filename = path.name
         index[str(post.metadata.get("Name") or path.stem)] = filename
 
-        # `aliases:` with no value parses to None, not []; guard against it.
-        for alias in post.metadata.get("aliases") or []:
-            index[str(alias)] = filename
+        # `aliases:` may be absent (None) or, if hand-edited, a scalar string
+        # instead of a list; only iterate when it is actually a list, so we
+        # don't index a string character-by-character.
+        aliases = post.metadata.get("aliases")
+        if isinstance(aliases, list):
+            for alias in aliases:
+                index[str(alias)] = filename
 
     return index

@@ -40,6 +40,17 @@ def test_handles_empty_aliases_value(vault_dir, monkeypatch):
     assert idx["Jane Doe"] == "Jane Doe.md"
 
 
+def test_scalar_aliases_not_split_into_characters(vault_dir, monkeypatch):
+    # A hand-edited scalar alias must be ignored, not indexed letter-by-letter.
+    monkeypatch.setattr(index_module, "VAULT_PATH", vault_dir)
+    (vault_dir / "ppl" / "Jane Doe.md").write_text(
+        "---\nName: Jane Doe\naliases: jane\n---\n"
+    )
+    idx = index_module.build_contact_index()
+    assert idx["Jane Doe"] == "Jane Doe.md"
+    assert "j" not in idx and "a" not in idx
+
+
 def test_falls_back_to_stem_when_no_name(vault_dir, monkeypatch):
     monkeypatch.setattr(index_module, "VAULT_PATH", vault_dir)
     (vault_dir / "ppl" / "Jane Doe.md").write_text("---\n---\n")
