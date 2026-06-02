@@ -1,4 +1,3 @@
-import pytest
 import vault.index as index_module
 
 

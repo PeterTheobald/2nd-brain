@@ -4,10 +4,10 @@ import logging
 import discord
 from discord.ext import commands
 
-from config import DISCORD_TOKEN, DISCORD_CHANNEL_ID
+from config import DISCORD_CHANNEL_ID, DISCORD_TOKEN
 from pipeline.analyze import analyze
-from vault.writer import execute_actions
 from vault.index import build_contact_index
+from vault.writer import execute_actions
 
 logging.basicConfig(
     level=logging.INFO,

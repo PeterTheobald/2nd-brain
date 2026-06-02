@@ -16,4 +16,16 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=8.0.0",
+    "ruff>=0.6.0",
 ]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+# The system prompt is a long natural-language string; wrapping it would change
+# the text sent to Claude.
+"pipeline/analyze.py" = ["E501"]

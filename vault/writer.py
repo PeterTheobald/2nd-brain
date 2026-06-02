@@ -3,6 +3,7 @@ import re
 import tempfile
 from datetime import date
 from pathlib import Path
+
 import frontmatter
 
 from config import VAULT_PATH

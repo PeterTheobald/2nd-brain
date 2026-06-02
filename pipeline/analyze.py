@@ -1,7 +1,9 @@
 import json
 import re
-import anthropic
 from datetime import date
+
+import anthropic
+
 from config import ANTHROPIC_API_KEY
 
 client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)

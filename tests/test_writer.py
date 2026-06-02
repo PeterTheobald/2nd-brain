@@ -10,20 +10,21 @@ Dates used:
 All tests use tmp_path via the vault_dir fixture — never touch the real vault.
 """
 
-import pytest
+from datetime import date
+
 import frontmatter
+import pytest
+
 import vault.writer as writer_module
 from vault.writer import (
     _build_date_block,
-    _parse_date_from_header,
     _iso_week,
+    _parse_date_from_header,
     _safe_vault_path,
-    _write_journal_entry,
     _write_contact_journal,
+    _write_journal_entry,
     execute_actions,
 )
-from datetime import date
-
 
 # ---------------------------------------------------------------------------
 # Unit tests: helper functions
@@ -261,7 +262,8 @@ class TestWriteContactJournal:
     def _make_contact(self, vault_dir, filename, extra_body=""):
         path = vault_dir / "ppl" / filename
         path.write_text(
-            f"---\nName: Test Person\nLastContact:\naliases: []\n---\n\nAGENDA:\n\nJOURNAL:\n{extra_body}"
+            f"---\nName: Test Person\nLastContact:\naliases: []\n---\n\n"
+            f"AGENDA:\n\nJOURNAL:\n{extra_body}"
         )
         return path
 
@@ -275,7 +277,9 @@ class TestWriteContactJournal:
     def test_updates_last_contact(self, vault_dir, monkeypatch):
         monkeypatch.setattr(writer_module, "VAULT_PATH", vault_dir)
         self._make_contact(vault_dir, "Test Person.md")
-        _write_contact_journal(self._action("Test Person.md", "some note", last_contact="2026-06-01"))
+        _write_contact_journal(
+            self._action("Test Person.md", "some note", last_contact="2026-06-01")
+        )
         post = frontmatter.load(str(vault_dir / "ppl" / "Test Person.md"))
         assert post.metadata["LastContact"] == "2026-06-01"
 
@@ -291,7 +295,8 @@ class TestWriteContactJournal:
         monkeypatch.setattr(writer_module, "VAULT_PATH", vault_dir)
         path = vault_dir / "ppl" / "Test Person.md"
         path.write_text(
-            "---\nName: Test Person\nLastContact:\naliases: []\n---\n\nAGENDA:\n- [ ] ask about project\n\nJOURNAL:\n"
+            "---\nName: Test Person\nLastContact:\naliases: []\n---\n\n"
+            "AGENDA:\n- [ ] ask about project\n\nJOURNAL:\n"
         )
         _write_contact_journal(self._action("Test Person.md", "2026-06-01 spoke"))
         text = path.read_text()

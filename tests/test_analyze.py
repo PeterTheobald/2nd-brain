@@ -6,10 +6,10 @@ JSON parsing without making real API calls or incurring costs.
 """
 
 import json
-import pytest
-from unittest.mock import MagicMock, patch
 from datetime import date
+from unittest.mock import MagicMock, patch
 
+import pytest
 
 SAMPLE_RESPONSE = {
     "transcript": "called Alex about the house",
@@ -53,7 +53,9 @@ class TestAnalyze:
         import pipeline.analyze as analyze_module
         mock_client = _make_mock_client(SAMPLE_RESPONSE)
         with patch.object(analyze_module, "client", mock_client):
-            result = analyze_module.analyze("called Alex about the house", {"Alex Carter": "Alex Carter.md"})
+            result = analyze_module.analyze(
+                "called Alex about the house", {"Alex Carter": "Alex Carter.md"}
+            )
         assert result["transcript"] == "called Alex about the house"
         assert len(result["actions"]) == 2
 
