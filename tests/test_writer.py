@@ -306,10 +306,31 @@ class TestWriteContactJournal:
         text = path.read_text()
         assert "2026-06-01 note" in text
 
-    def test_missing_file_does_not_raise(self, vault_dir, monkeypatch):
+    def test_missing_file_raises_filenotfound(self, vault_dir, monkeypatch):
         monkeypatch.setattr(writer_module, "VAULT_PATH", vault_dir)
-        # Should return silently, not raise
-        _write_contact_journal(self._action("Nonexistent Person.md", "some note"))
+        with pytest.raises(FileNotFoundError):
+            _write_contact_journal(self._action("Nonexistent Person.md", "some note"))
+
+    def test_missing_contact_is_flagged_by_execute_actions(self, vault_dir, monkeypatch):
+        # Regression: a contact_journal for a missing file must be reported as
+        # failed, not as a successful "wrote to".
+        monkeypatch.setattr(writer_module, "VAULT_PATH", vault_dir)
+        results = execute_actions([self._action("Nobody.md", "note")])
+        assert results[0].startswith("FAILED")
+
+    def test_journal_word_in_entry_does_not_misplace(self, vault_dir, monkeypatch):
+        # The "JOURNAL:" literal inside an existing entry must not be treated as
+        # the section header.
+        monkeypatch.setattr(writer_module, "VAULT_PATH", vault_dir)
+        path = vault_dir / "ppl" / "Test Person.md"
+        path.write_text(
+            "---\nName: Test Person\nLastContact:\naliases: []\n---\n\n"
+            "AGENDA:\n\nJOURNAL:\n- 2026-01-01 talked re: JOURNAL: redesign\n"
+        )
+        _write_contact_journal(self._action("Test Person.md", "2026-06-01 new note"))
+        text = path.read_text()
+        # New entry sits right under the real header, above the old entry.
+        assert text.index("JOURNAL:\n- 2026-06-01 new note") < text.index("2026-01-01 talked")
 
 
 # ---------------------------------------------------------------------------

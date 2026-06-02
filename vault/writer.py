@@ -215,7 +215,9 @@ def _write_contact_journal(action: dict) -> None:
     contact_path = _safe_vault_path(action["file"])
 
     if not contact_path.exists():
-        return  # bot should have created the file first via create_contact action
+        # The contact must be created first (a create_contact action in Phase 3).
+        # Surface this rather than silently reporting success.
+        raise FileNotFoundError(f"contact file does not exist: {action['file']}")
 
     post = frontmatter.load(str(contact_path))
     body = post.content
@@ -224,11 +226,16 @@ def _write_contact_journal(action: dict) -> None:
     if action.get("update_last_contact"):
         post.metadata["LastContact"] = action["update_last_contact"]
 
-    # Append to JOURNAL section
-    if "JOURNAL:" in body:
-        body = body.replace("JOURNAL:", f"JOURNAL:\n- {action['content']}", 1)
+    # Insert under the JOURNAL: section header (a line starting with "JOURNAL:"),
+    # not the first place the literal "JOURNAL:" happens to appear in some entry.
+    lines = body.splitlines(keepends=True)
+    for i, line in enumerate(lines):
+        if line.startswith("JOURNAL:"):
+            lines.insert(i + 1, f"- {action['content']}\n")
+            body = "".join(lines)
+            break
     else:
-        body = body + f"\nJOURNAL:\n- {action['content']}\n"
+        body = body.rstrip("\n") + f"\n\nJOURNAL:\n- {action['content']}\n"
 
     post.content = body
     _atomic_write(contact_path, frontmatter.dumps(post))
