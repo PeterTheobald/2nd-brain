@@ -41,6 +41,21 @@ class TestParseDateFromHeader:
     def test_returns_none_for_separator(self):
         assert _parse_date_from_header("---\n") is None
 
+    def test_parses_legacy_header_without_hashes(self):
+        # Older entries in the vault use a plain "YYYY-MM-DD Ddd" header.
+        assert _parse_date_from_header("2026-05-08 Fri\n") == date(2026, 5, 8)
+
+    def test_parses_combined_weekend_header(self):
+        assert _parse_date_from_header("## 2026-01-24,25 Sat,Sun\n") == date(2026, 1, 24)
+
+    def test_returns_none_for_impossible_date(self):
+        # 2026-04-31 exists in the real vault; must be skipped, not crash.
+        assert _parse_date_from_header("2026-04-31 Tue\n") is None
+        assert _parse_date_from_header("## 2026-04-31 Tue\n") is None
+
+    def test_does_not_match_date_inside_bullet(self):
+        assert _parse_date_from_header("- met on 2026-06-01\n") is None
+
 
 class TestIsoWeek:
     def test_same_week(self):
@@ -161,6 +176,30 @@ class TestWriteJournalEntry:
         assert "- entry one" in text
         assert "- entry two" in text
         assert "- new entry" in text
+
+    def test_same_month_entry_goes_under_month_header(self, vault_dir, monkeypatch):
+        # Regression: a new same-month entry must slot *under* the existing
+        # "# June" header, not above it.
+        monkeypatch.setattr(writer_module, "VAULT_PATH", vault_dir)
+        journal = vault_dir / "Journal 2026.md"
+        journal.write_text("\n# June\n\n## 2026-06-05 Fri\n- old entry\n")
+        _write_journal_entry(self._action("2026-06-08", "new week entry"))
+        text = journal.read_text()
+        # Exactly one June header, and it precedes both date sections.
+        assert text.count("# June") == 1
+        assert text.index("# June") < text.index("## 2026-06-08")
+        assert text.index("## 2026-06-08") < text.index("## 2026-06-05")
+
+    def test_week_separator_sits_between_the_two_weeks(self, vault_dir, monkeypatch):
+        # Regression: the "---" rule belongs between the newer week and the
+        # older week below it, not above the newer entry.
+        monkeypatch.setattr(writer_module, "VAULT_PATH", vault_dir)
+        journal = vault_dir / "Journal 2026.md"
+        journal.write_text("\n# June\n\n## 2026-06-05 Fri\n- old entry\n")
+        _write_journal_entry(self._action("2026-06-08", "new week entry"))
+        text = journal.read_text()
+        sep = text.index("---")
+        assert text.index("## 2026-06-08") < sep < text.index("## 2026-06-05")
 
     def test_active_now_block_preserved_at_top(self, vault_dir, monkeypatch):
         monkeypatch.setattr(writer_module, "VAULT_PATH", vault_dir)
@@ -298,3 +337,40 @@ class TestExecuteActions:
         actions = [{"type": "future_action_type", "file": "something.md"}]
         results = execute_actions(actions)
         assert results == []
+
+    def test_invalid_date_is_flagged_not_crashed(self, vault_dir, monkeypatch):
+        monkeypatch.setattr(writer_module, "VAULT_PATH", vault_dir)
+        actions = [
+            {
+                "type": "journal_entry",
+                "file": "Journal 2026.md",
+                "date": "2026-04-31",  # impossible date
+                "content": "bad date entry",
+            }
+        ]
+        results = execute_actions(actions)
+        assert len(results) == 1
+        assert results[0].startswith("FAILED")
+        # Nothing should have been written.
+        assert not (vault_dir / "Journal 2026.md").exists()
+
+    def test_one_bad_action_does_not_block_the_others(self, vault_dir, monkeypatch):
+        monkeypatch.setattr(writer_module, "VAULT_PATH", vault_dir)
+        actions = [
+            {
+                "type": "journal_entry",
+                "file": "Journal 2026.md",
+                "date": "2026-13-01",  # invalid month
+                "content": "bad",
+            },
+            {
+                "type": "journal_entry",
+                "file": "Journal 2026.md",
+                "date": "2026-06-01",
+                "content": "good entry",
+            },
+        ]
+        results = execute_actions(actions)
+        assert results[0].startswith("FAILED")
+        assert results[1] == "wrote to Journal 2026.md"
+        assert "good entry" in (vault_dir / "Journal 2026.md").read_text()
