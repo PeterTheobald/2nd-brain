@@ -8,6 +8,9 @@ dependencies = [
     "openai>=1.0.0",
     "python-dotenv>=1.0.0",
     "python-frontmatter>=1.1.0",
+    # discord.py imports the stdlib `audioop`, removed in Python 3.13 (PEP 594).
+    # The backport restores it so the bot can import/run on 3.13+.
+    "audioop-lts; python_version >= '3.13'",
 ]
 
 [dependency-groups]
