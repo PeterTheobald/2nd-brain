@@ -1,4 +1,5 @@
 import json
+import re
 import anthropic
 from datetime import date
 from config import ANTHROPIC_API_KEY
@@ -52,6 +53,31 @@ Return ONLY valid JSON in this exact structure, no other text:
 }}"""
 
 
+def _extract_text(message) -> str:
+    """Return the first text block from a Claude response, or raise."""
+    for block in message.content:
+        text = getattr(block, "text", None)
+        if isinstance(text, str):
+            return text
+    raise ValueError("Claude response contained no text block")
+
+
+def _parse_json(text: str) -> dict:
+    """Parse Claude's JSON reply, tolerating ```json fences and stray prose."""
+    s = text.strip()
+    fence = re.search(r"```(?:json)?\s*(.*?)```", s, re.DOTALL | re.IGNORECASE)
+    if fence:
+        s = fence.group(1).strip()
+    try:
+        return json.loads(s)
+    except json.JSONDecodeError:
+        # Fall back to the outermost {...} span if the model wrapped it in text.
+        start, end = s.find("{"), s.rfind("}")
+        if start != -1 and end > start:
+            return json.loads(s[start : end + 1])
+        raise
+
+
 def analyze(transcript: str, contact_index: dict[str, str]) -> dict:
     today = date.today().isoformat()
     year = date.today().year
@@ -74,4 +100,8 @@ def analyze(transcript: str, contact_index: dict[str, str]) -> dict:
         messages=[{"role": "user", "content": transcript}],
     )
 
-    return json.loads(message.content[0].text)
+    data = _parse_json(_extract_text(message))
+    if not isinstance(data, dict) or not isinstance(data.get("actions"), list):
+        raise ValueError("Claude response missing an 'actions' list")
+    data.setdefault("transcript", transcript)
+    return data
