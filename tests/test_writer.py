@@ -17,6 +17,7 @@ from vault.writer import (
     _build_date_block,
     _parse_date_from_header,
     _iso_week,
+    _safe_vault_path,
     _write_journal_entry,
     _write_contact_journal,
     execute_actions,
@@ -93,6 +94,31 @@ class TestBuildDateBlock:
     def test_correct_day_abbreviation(self):
         block = _build_date_block(date(2026, 6, 1), "x", prev_date=None)
         assert "## 2026-06-01 Mon" in block
+
+
+class TestSafeVaultPath:
+    def test_allows_path_inside_vault(self, vault_dir, monkeypatch):
+        monkeypatch.setattr(writer_module, "VAULT_PATH", vault_dir)
+        assert _safe_vault_path("ppl/Alex.md") == (vault_dir / "ppl" / "Alex.md").resolve()
+
+    def test_rejects_parent_traversal(self, vault_dir, monkeypatch):
+        monkeypatch.setattr(writer_module, "VAULT_PATH", vault_dir)
+        with pytest.raises(ValueError):
+            _safe_vault_path("../../etc/passwd")
+
+    def test_rejects_absolute_path(self, vault_dir, monkeypatch):
+        monkeypatch.setattr(writer_module, "VAULT_PATH", vault_dir)
+        with pytest.raises(ValueError):
+            _safe_vault_path("/etc/passwd")
+
+    def test_traversal_action_is_flagged_not_written(self, vault_dir, monkeypatch):
+        monkeypatch.setattr(writer_module, "VAULT_PATH", vault_dir)
+        results = execute_actions(
+            [{"type": "journal_entry", "file": "../escape.md",
+              "date": "2026-06-01", "content": "x"}]
+        )
+        assert results[0].startswith("FAILED")
+        assert not (vault_dir.parent / "escape.md").exists()
 
 
 # ---------------------------------------------------------------------------

@@ -8,6 +8,21 @@ import frontmatter
 from config import VAULT_PATH
 
 
+def _safe_vault_path(file: str) -> Path:
+    """Resolve a vault-relative path, refusing anything that escapes the vault.
+
+    `file` comes from the LLM's output, so an absolute path or a "../" sequence
+    could otherwise direct a write outside the vault.
+    """
+    base = VAULT_PATH.resolve()
+    target = (base / file).resolve()
+    try:
+        target.relative_to(base)
+    except ValueError:
+        raise ValueError(f"refusing to write outside the vault: {file!r}") from None
+    return target
+
+
 def _atomic_write(path: Path, text: str) -> None:
     """Write text to path atomically.
 
@@ -124,7 +139,7 @@ def _write_journal_entry(action: dict) -> None:
         entry_date = date.fromisoformat(action["date"])
     except (KeyError, TypeError, ValueError) as e:
         raise ValueError(f"journal_entry has an invalid date: {action.get('date')!r}") from e
-    journal_path = VAULT_PATH / action["file"]
+    journal_path = _safe_vault_path(action["file"])
 
     if not journal_path.exists():
         _atomic_write(
@@ -197,7 +212,7 @@ def _write_journal_entry(action: dict) -> None:
 # --- Contact journal writer ---
 
 def _write_contact_journal(action: dict) -> None:
-    contact_path = VAULT_PATH / action["file"]
+    contact_path = _safe_vault_path(action["file"])
 
     if not contact_path.exists():
         return  # bot should have created the file first via create_contact action
