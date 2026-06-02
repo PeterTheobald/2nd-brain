@@ -7,6 +7,7 @@ from pathlib import Path
 import frontmatter
 
 from config import VAULT_PATH
+from models import Action
 
 
 def _safe_vault_path(file: str) -> Path:
@@ -52,7 +53,7 @@ def _atomic_write(path: Path, text: str) -> None:
         raise
 
 
-def execute_actions(actions: list[dict]) -> list[str]:
+def execute_actions(actions: list[Action]) -> list[str]:
     """Execute a list of filing actions. Returns a list of result messages."""
     results = []
     for action in actions:
@@ -135,7 +136,7 @@ def _build_date_block(entry_date: date, content: str, prev_date: date | None) ->
     return "".join(parts)
 
 
-def _write_journal_entry(action: dict) -> None:
+def _write_journal_entry(action: Action) -> None:
     try:
         entry_date = date.fromisoformat(action["date"])
     except (KeyError, TypeError, ValueError) as e:
@@ -212,7 +213,7 @@ def _write_journal_entry(action: dict) -> None:
 
 # --- Contact journal writer ---
 
-def _write_contact_journal(action: dict) -> None:
+def _write_contact_journal(action: Action) -> None:
     contact_path = _safe_vault_path(action["file"])
 
     if not contact_path.exists():

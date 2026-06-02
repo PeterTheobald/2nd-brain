@@ -5,6 +5,7 @@ import discord
 from discord.ext import commands
 
 from config import DISCORD_CHANNEL_ID, DISCORD_TOKEN
+from models import AnalysisResult
 from pipeline.analyze import analyze
 from vault.index import build_contact_index
 from vault.writer import execute_actions
@@ -21,10 +22,10 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # Holds pending suggestions keyed by suggestion message ID
-pending: dict[int, dict] = {}
+pending: dict[int, AnalysisResult] = {}
 
 
-def format_suggestion(result: dict) -> str:
+def format_suggestion(result: AnalysisResult) -> str:
     lines = ["📥 **Filing suggestion**", ""]
     lines.append(f"> *{result['transcript']}*")
     lines.append("")

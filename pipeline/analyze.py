@@ -1,10 +1,12 @@
 import json
 import re
 from datetime import date
+from typing import cast
 
 import anthropic
 
 from config import ANTHROPIC_API_KEY
+from models import AnalysisResult
 
 client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
@@ -80,7 +82,7 @@ def _parse_json(text: str) -> dict:
         raise
 
 
-def analyze(transcript: str, contact_index: dict[str, str]) -> dict:
+def analyze(transcript: str, contact_index: dict[str, str]) -> AnalysisResult:
     today = date.today().isoformat()
     year = date.today().year
 
@@ -106,4 +108,4 @@ def analyze(transcript: str, contact_index: dict[str, str]) -> dict:
     if not isinstance(data, dict) or not isinstance(data.get("actions"), list):
         raise ValueError("Claude response missing an 'actions' list")
     data.setdefault("transcript", transcript)
-    return data
+    return cast(AnalysisResult, data)
